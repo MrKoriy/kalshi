@@ -38,15 +38,24 @@ class StrategyLedger:
     def __init__(self, name: str):
         self.name = name
         self.pnl = 0.0
+        self.pnl_day = 0.0
+        self.day = ""
         self.wins = 0
         self.closed = 0
         self.open_cost = 0.0
         self.pending: list = []
 
+    def _rollover(self) -> None:
+        today = now_utc().date().isoformat()
+        if self.day != today:
+            self.day = today
+            self.pnl_day = 0.0
+
     def halted(self, cfg: Config) -> bool:
-        if cfg.max_daily_profit > 0 and self.pnl >= cfg.max_daily_profit:
+        self._rollover()
+        if cfg.max_daily_profit > 0 and self.pnl_day >= cfg.max_daily_profit:
             return True
-        if cfg.max_daily_loss < 0 and self.pnl <= cfg.max_daily_loss:
+        if cfg.max_daily_loss < 0 and self.pnl_day <= cfg.max_daily_loss:
             return True
         return False
 
@@ -104,7 +113,9 @@ class Ledger:
                 won = up_won if t.side == "UP" else not up_won
                 payout = 1.0 if won else 0.0
                 pnl = (payout - t.entry) * t.size - t.fees
+                s._rollover()
                 s.pnl += pnl
+                s.pnl_day += pnl
                 s.closed += 1
                 s.wins += 1 if pnl > 0 else 0
                 s.open_cost -= t.entry * t.size

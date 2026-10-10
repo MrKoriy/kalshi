@@ -51,10 +51,40 @@ def replay(db_path: str, min_edge: float = 0.06, size: float = 300.0) -> None:
                     # outcome is resolved later from Kalshi; here we just log the pick
                     results[ticker].append({"side": side, "price": price, "p": pw,
                                             "minutes_left": s["minutes_left"]})
-    for ticker, picks in results.items():
-        print(ticker, picks)
-    print(f"\ntotal hypothetical trades: {sum(len(v) for v in results.values())}")
-    print("Note: outcomes are not resolved here; this only replays entry logic.")
+    picks_flat = [(tk, p) for tk, ps in results.items() for p in ps]
+    print(f"hypothetical trades: {len(picks_flat)} across {len(results)} markets")
+    if not picks_flat:
+        print("no entries replayed (snapshots need sigma_min — recorded after the fix)")
+        return
+
+    # resolve outcomes from Kalshi
+    import httpx
+    from .kalshi import BASE
+    from .ledger import kalshi_fee
+    pnl_sum, wins, n = 0.0, 0, 0
+    with httpx.Client(timeout=30) as http:
+        for ticker, pick in picks_flat:
+            try:
+                r = http.get(f"{BASE}/markets/{ticker}")
+                res = ((r.json() or {}).get("market") or {}).get("result")
+            except Exception:
+                res = None
+            if res not in ("yes", "no"):
+                print(f"  {ticker}: unresolved, skipped")
+                continue
+            up = res == "yes"
+            won = up if pick["side"] == "UP" else not up
+            fee = kalshi_fee(size, pick["price"])
+            pnl = ((1.0 if won else 0.0) - pick["price"]) * size - fee
+            pnl_sum += pnl
+            wins += 1 if pnl > 0 else 0
+            n += 1
+            print(f"  {ticker} {pick['side']:4s} @ {pick['price']:.3f} "
+                  f"p={pick['p']:.3f} -> {res.upper():3s} {'WIN ' if won else 'LOSS'} {pnl:+.2f}")
+    if n:
+        staked = sum(p["price"] * size for _, p in picks_flat[:n])
+        print(f"\nresolved {n}: wins {wins}/{n}  pnl {pnl_sum:+.2f}  "
+              f"roi {100 * pnl_sum / staked:+.1f}% on staked {staked:.0f}")
 
 
 if __name__ == "__main__":

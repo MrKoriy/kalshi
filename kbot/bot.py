@@ -37,9 +37,11 @@ async def snapshot_loop(cfg, kc, rec, spot_cache, derivs_cache, stop):
                     continue
                 bundle = spot_cache.get(asset)
                 d = derivs_cache.get(asset)
+                sigma = prices.realized_vol(bundle.best_candles) if bundle else None
                 rec.snapshot(asset, snap.ticker, {
                     "minutes_left": snap.minutes_left,
                     "strike": snap.strike,
+                    "sigma_min": sigma,
                     "up_ask": snap.up_ask, "down_ask": snap.down_ask,
                     "up_bid": snap.up_bid, "down_bid": snap.down_bid,
                     "spread": snap.spread, "mid_up": snap.mid_up,
@@ -122,6 +124,8 @@ async def asset_loop(asset, cfg, kc, http, llm_ens, ledger, rec, calibrator,
                 st.jev_vote = jv
 
                 res = ensemble.combine(cfg, st.votes)
+                if res.p_up is not None:
+                    res.p_up = calibrator.apply("ensemble", res.p_up)
                 if res.p_up is None:
                     st.phase = "DONE"
                     log.warning("%s no usable votes, skipping session", asset)
@@ -179,7 +183,7 @@ async def run_shadows(asset, cfg, snap, f, st, llm_votes, cv, ledger, ens_res, j
         if entry is None or not 0 < entry < 1:
             return
         fill = snap.fill_estimate(side, cfg.order_size)
-        if fill is None:
+        if fill is None or fill["partial"]:
             return
         t = ledger.open(name, asset, snap, side, fill["avg"], cfg.order_size, p_win,
                         name, reason)
@@ -187,6 +191,8 @@ async def run_shadows(asset, cfg, snap, f, st, llm_votes, cv, ledger, ens_res, j
             log.info("[shadow:%s] %s %s x%.0f @ %.3f | %s", name, asset, side,
                      cfg.order_size, fill["avg"], reason[:120])
 
+    fee_up = fee_per_contract(snap.up_ask or 0.5)
+    fee_dn = fee_per_contract(snap.down_ask or 0.5)
     for name in cfg.shadow_strategies:
         if name in st.shadows_done:
             continue
@@ -201,7 +207,7 @@ async def run_shadows(asset, cfg, snap, f, st, llm_votes, cv, ledger, ens_res, j
                         0.5, f"mom_5m={f.mom_5m:+.4%}")
         elif name == "vol_only" and st.p_fair is not None:
             pick = ensemble.decide_side(st.p_fair, snap.up_ask or 9.9,
-                                        snap.down_ask or 9.9, 0, 0, cfg)
+                                        snap.down_ask or 9.9, fee_up, fee_dn, cfg)
             if pick:
                 await place(name, pick["side"], pick["price"], pick["p"],
                             f"vol model edge {pick['ev']:.3f}")
@@ -210,19 +216,19 @@ async def run_shadows(asset, cfg, snap, f, st, llm_votes, cv, ledger, ens_res, j
             if usable:
                 p = sum(v.p_up for v in usable) / len(usable)
                 pick = ensemble.decide_side(p, snap.up_ask or 9.9,
-                                            snap.down_ask or 9.9, 0, 0, cfg)
+                                            snap.down_ask or 9.9, fee_up, fee_dn, cfg)
                 if pick:
                     await place(name, pick["side"], pick["price"], pick["p"],
                                 "llm ensemble")
         elif name == "clef_solo" and cv.p_up is not None:
             pick = ensemble.decide_side(cv.p_up, snap.up_ask or 9.9,
-                                        snap.down_ask or 9.9, 0, 0, cfg)
+                                        snap.down_ask or 9.9, fee_up, fee_dn, cfg)
             if pick:
                 await place(name, pick["side"], pick["price"], pick["p"],
                             f"clef regime={cv.regime}")
         elif name == "jev_solo" and jv is not None and jv.p_up is not None:
             pick = ensemble.decide_side(jv.p_up, snap.up_ask or 9.9,
-                                        snap.down_ask or 9.9, 0, 0, cfg)
+                                        snap.down_ask or 9.9, fee_up, fee_dn, cfg)
             if pick:
                 await place(name, pick["side"], pick["price"], pick["p"],
                             f"jev regime={jv.regime}")
