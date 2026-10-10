@@ -1,0 +1,49 @@
+BTC: 192 settled markets in window
+BTC: 2935 spot candles
+  BTC: 20/192
+  BTC: 40/192
+  BTC: 60/192
+  BTC: 80/192
+  BTC: 100/192
+  BTC: 120/192
+  BTC: 140/192
+  BTC: 160/192
+  BTC: 180/192
+  BTC: 192/192
+ETH: 0 settled markets in window
+SOL: 192 settled markets in window
+SOL: 2935 spot candles
+  SOL: 20/192
+  SOL: 40/192
+  SOL: 60/192
+  SOL: 80/192
+  SOL: 100/192
+  SOL: 120/192
+  SOL: 140/192
+  SOL: 160/192
+  SOL: 180/192
+  SOL: 192/192
+DOGE: 193 settled markets in window
+DOGE: 2762 spot candles
+  DOGE: 20/193
+  DOGE: 40/193
+  DOGE: 60/193
+  DOGE: 80/193
+  DOGE: 100/193
+  DOGE: 120/193
+  DOGE: 140/193
+  DOGE: 160/193
+  DOGE: 180/193
+  DOGE: 193/193
+
+skipped: no book 479, no spot 0
+
+model vs market over 98 scored markets:
+  brier vol-model : 0.1891
+  brier market ask: 0.1861
+
+strategy     trades    wins        pnl      roi
+always_down      98  51/98      +22.21    +0.1%
+vol_only         21   6/21     -140.43    -7.5%
+always_up        98  47/98    -1081.81    -7.3%
+momentum         98  67/98    -1329.52    -6.3%

@@ -50,6 +50,7 @@ def test_ensemble_combine():
         memory_days=7, shadow_strategies=[], llm_base_url="x", llm_api_key="k",
         llm_models=["m"], llm_temperature=0.2, llm_timeout=45, instructions="",
         clef_base_url="", clef_model="", clef_timeout=10, jev_api_key="", jev_model="", jev_base_url="", jev_timeout=10,
+        sigma_mult=1.25, momentum_fade=True,
     )
     votes = [
         ensemble.Vote("vol", 0.6, 1.0),
@@ -72,6 +73,7 @@ def test_decide_side():
         memory_days=7, shadow_strategies=[], llm_base_url="x", llm_api_key="k",
         llm_models=["m"], llm_temperature=0.2, llm_timeout=45, instructions="",
         clef_base_url="", clef_model="", clef_timeout=10, jev_api_key="", jev_model="", jev_base_url="", jev_timeout=10,
+        sigma_mult=1.25, momentum_fade=True,
     )
     pick = ensemble.decide_side(0.6, 0.5, 0.52, 0.0175, 0.0175, cfg)
     assert pick and pick["side"] == "UP"

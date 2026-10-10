@@ -29,6 +29,8 @@ class Config:
     book_depth: int
     poll_seconds: float
     event_edge_bonus: float
+    sigma_mult: float
+    momentum_fade: bool
     trades_file: str
     db_path: str
     recorder: bool
@@ -134,6 +136,11 @@ def load(require_llm: bool = True) -> Config:
         book_depth=max(1, int(num("BOOK_DEPTH", "10"))),
         poll_seconds=max(poll, 0.5),
         event_edge_bonus=num("EVENT_EDGE_BONUS", "0.03"),
+        # realized 15m moves run ~1.23-1.30x our EWMA sigma with fat tails (measured
+        # on 7d Binance 1m BTC/ETH): scale sigma so p_fair isn't overconfident
+        sigma_mult=num("SIGMA_MULT", "1.25"),
+        # mom_5m predicts next-15m direction only ~48% of the time (n~10k): fade it
+        momentum_fade=_yes("MOMENTUM_FADE", "YES"),
         trades_file=os.getenv("TRADES_FILE", "trades.jsonl"),
         db_path=os.getenv("DB_PATH", "data/bot.db"),
         recorder=_yes("RECORDER", "YES"),

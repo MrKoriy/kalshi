@@ -99,7 +99,8 @@ async def asset_loop(asset, cfg, kc, http, llm_ens, ledger, rec, calibrator,
                 f = features.build(asset, snap, bundle, derivs)
                 st.p_fair = None
                 if f.spot and f.strike and f.sigma_min:
-                    st.p_fair = quant.fair_prob_up(f.spot, f.strike, mins, f.sigma_min)
+                    st.p_fair = quant.fair_prob_up(f.spot, f.strike, mins,
+                                                   f.sigma_min * cfg.sigma_mult)
 
                 # votes
                 st.votes = []
@@ -203,8 +204,10 @@ async def run_shadows(asset, cfg, snap, f, st, llm_votes, cv, ledger, ens_res, j
             await place(name, "DOWN", snap.down_ask, 0.5, "baseline always DOWN")
         elif name == "momentum" and f.mom_5m is not None:
             side = "UP" if f.mom_5m > 0 else "DOWN"
+            if cfg.momentum_fade:
+                side = "DOWN" if side == "UP" else "UP"
             await place(name, side, snap.up_ask if side == "UP" else snap.down_ask,
-                        0.5, f"mom_5m={f.mom_5m:+.4%}")
+                        0.5, f"mom_5m={f.mom_5m:+.4%}{' (fade)' if cfg.momentum_fade else ''}")
         elif name == "vol_only" and st.p_fair is not None:
             pick = ensemble.decide_side(st.p_fair, snap.up_ask or 9.9,
                                         snap.down_ask or 9.9, fee_up, fee_dn, cfg)

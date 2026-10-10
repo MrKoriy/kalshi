@@ -44,10 +44,12 @@ async def settle_loop(cfg, kc: Kalshi, ledger: Ledger, calibrator: Calibrator):
             prim = ledger.primary
             if prim.halted(cfg) and not prim.pending and all(
                 not s.pending for s in ledger.shadows.values()
-            ):
-                log.info("Daily limit reached and nothing pending, stopping. %s",
+            ) and not getattr(ledger, "_halt_logged", False):
+                ledger._halt_logged = True
+                log.info("Daily limit reached, flat — idling until UTC day rolls over. %s",
                          ledger.summary())
-                ledger.stop = True
+            if not prim.halted(cfg):
+                ledger._halt_logged = False
         except Exception:
             log.exception("settle loop error")
         await asyncio.sleep(3)
