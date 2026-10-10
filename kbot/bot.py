@@ -254,6 +254,15 @@ async def run(cfg):
         s.open_cost += o["entry"] * o["size"]
     if orphans:
         log.warning("recovered %d unsettled trades from previous runs", len(orphans))
+
+    # restore today's settled PnL so daily limits survive restarts
+    day_start = now_utc().date().isoformat() + "T00:00:00+00:00"
+    for name, pnl in rec.pnl_since(day_start).items():
+        if name != "ensemble" and name not in ledger.shadows:
+            ledger.shadows[name] = StrategyLedger(name)
+        s = ledger.get(name)
+        s.day = now_utc().date().isoformat()
+        s.pnl_day = pnl
     stop = {"flag": False}
     spot_cache, derivs_cache, ev_cache = {}, {}, {}
 

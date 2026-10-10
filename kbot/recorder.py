@@ -118,6 +118,16 @@ class Recorder:
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def pnl_since(self, iso_ts: str) -> dict:
+        """Settled PnL per strategy since iso_ts (for daily-limit recovery)."""
+        if not self.db:
+            return {}
+        rows = self.db.execute(
+            "SELECT strategy, SUM(pnl) FROM settlements WHERE ts >= ? GROUP BY strategy",
+            (iso_ts,),
+        ).fetchall()
+        return {s: p or 0.0 for s, p in rows}
+
     def has_open(self, strategy: str, ticker: str) -> bool:
         """True if this strategy already has an unsettled trade on this ticker."""
         if not self.db:
